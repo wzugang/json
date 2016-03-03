@@ -1,0 +1,19 @@
+all:json.o libjson.so libjson.a
+
+CC=gcc
+	
+json.o:
+	$(CC) -fpic -c $(@:o=c) -o $@
+
+jsona.o:
+	$(CC) -c $(@:o=c) -o $@
+
+libjson.so:
+	$(CC) -shared -o $@ json.o
+	
+libjson.a:
+	ar -rcs $@ jsona.o
+
+.PHONY:clean
+clean:
+	@rm -rf *.o *.so *.a

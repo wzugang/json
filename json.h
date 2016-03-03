@@ -83,7 +83,7 @@ typedef struct __json_t
 
 typedef struct __json_hooks_t
 {
-    void *(*alloc)(unsigned int size);
+    void *(*alloc)(size_t size);
     void (*free)(void *p);
 }json_hooks_t,*json_hooks_ht;
 
@@ -117,7 +117,7 @@ static char hex_table[128]=
 };
 
 JEXPORT JAPI void 								json_hooks_init(json_hooks_ht hooks);
-JEXPORT JAPI void*								json_alloc(unsigned int size);
+JEXPORT JAPI void*								json_alloc(size_t size);
 JEXPORT JAPI void								json_free(void *p);
 JEXPORT JAPI json_ht 							json_parse(const char *value);
 JEXPORT JAPI json_ht 							json_parse_file(char *filename);

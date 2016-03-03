@@ -3,10 +3,10 @@
 static const char *json_error;
 
 //内存管理函数设置
-static void *(*do_alloc)(unsigned int size) 	= malloc;
+static void *(*do_alloc)(size_t size)			= malloc;
 static void (*do_free)(void *p) 				= free;
 
-void *json_alloc(unsigned int size)				{ if(!size)return NULL; return (*do_alloc)(size); }
+void *json_alloc(size_t size)					{ if(!size)return NULL; return (*do_alloc)(size); }
 void json_free(void *p) 						{ if(!p)return;(*do_free)(p); }
 
 //跳过小于32的字符
@@ -35,7 +35,7 @@ JSTATIC int json_strcasecmp(const char *s1,const char *s2)
 
 void json_hooks_init(json_hooks_ht hooks)
 {
-    if (!hooks) { do_alloc = malloc;do_free = free;} else { do_alloc = (hooks->alloc)?hooks->alloc:malloc;do_free = (hooks->free)?hooks->free:free;}
+    if (NULL == hooks) { do_alloc = malloc;do_free = free;} else { do_alloc = (hooks->alloc)?hooks->alloc:malloc;do_free = (hooks->free)?hooks->free:free;}
 }
 
 JSTATIC json_ht json_new_item(void)
