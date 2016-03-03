@@ -8,13 +8,34 @@
 #include <limits.h>
 #include <ctype.h>
 
-#define W_BUILD
+//#define BUILD_SHARED
 
-#ifdef W_BUILD
-#define         JAPI            __declspec(dllexport)
+#define JWINDOWS 	( defined(WIN32) || defined(_WIN32) || defined(WINNT) || defined(__MINGW32__) || defined(__MINGW64__) )
+
+#if JWINDOWS
+#if		defined(__cplusplus)
+#if		defined(BUILD_SHARED)
+#define 	JAPI 		 __declspec(dllexport)
 #else
-#define         JAPI            __declspec(dllimport)
+#define 	JAPI 		 __declspec(dllimport)
 #endif
+#else
+#define 	JAPI 		 
+#endif
+#else
+#if	defined(__GNUC__) &&  __GNUC__ >= 4
+#define 	JAPI 		 __attribute__((visibility("default")))
+#else
+#define 	JAPI 		
+#endif
+#endif
+
+#if (defined(GCC) || defined(GPP) || defined(__cplusplus))
+#define JSTATIC static inline
+#else
+#define JSTATIC static 
+#endif
+
 
 #ifdef __cplusplus
 #define JEXPORT extern "C"
@@ -78,11 +99,6 @@ typedef struct __json_buffer_t
 #define JZERO_LEN(op,len) 	memset(op, 0, len)
 #define JALIGN(x,align)		(((x) + (align) - 1) & ~((align)-1))
 
-#if (defined(GCC) || defined(GPP) || defined(__cplusplus))
-#define JSTATIC static inline
-#else
-#define JSTATIC static 
-#endif
 
 #define IS_NUM(c)		((c) <= '9' && (c) >= '0')
 

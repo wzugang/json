@@ -1,4 +1,4 @@
-all:json.o json.dll libjson.a
+all:json.o json.dll json.a
 
 CC=gcc
 	
@@ -8,8 +8,8 @@ json.o:
 json.dll:
 	$(CC) -shared -fPIC $(@:dll=o) -static-libgcc -o $@
 	
-libjson.a:
-	ar -rcs $@ $(@:a=0)
+json.a:
+	ar -rcs $@ $(@:a=o)
 
 .PHONY:clean
 clean:
