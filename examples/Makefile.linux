@@ -1,0 +1,10 @@
+all:testd test
+
+testd:test.c
+	$(CC) -o $@ $(@:d=.c) -L ../ -ljson -lm
+test:test.c
+	$(CC) -static -o $@ $@.c -L ../ -ljson -lm
+	
+.PHONY:clean
+clean:
+	@rm -rf *.o test testd
