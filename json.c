@@ -1,8 +1,8 @@
 #include "json.h"
 
 static const char *json_error;
-//内存管理函数设置
 
+//内存管理函数设置
 static void *(*do_alloc)(unsigned int size) 	= malloc;
 static void (*do_free)(void *p) 				= free;
 

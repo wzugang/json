@@ -10,16 +10,6 @@
 
 #define W_BUILD
 
-#define DLL_INIT(hlib)	\
-HMODULE hlib_dll = LoadLibrary(#hlib".dll")
-
-#define DLL_IMPORT(funcname)\
-if((fT##funcname=(T##funcname)GetProcAddress(hlib_dll,#funcname))==NULL)\
-{ printf("加载函数"#funcname"失败。"); }
-	
-#define DLL_FREE()	\
-	FreeLibrary(hlib_dll)
-
 #ifdef W_BUILD
 #define         JAPI            __declspec(dllexport)
 #else
@@ -95,10 +85,7 @@ typedef struct __json_buffer_t
 #endif
 
 #define IS_NUM(c)		((c) <= '9' && (c) >= '0')
-#define IS_A2F(c)		((c) <= 'F' && (c) >= 'A')
-#define IS_a2f(c)		((c) <= 'f' && (c) >= 'a')
 
-//static const unsigned char firstByteMark[7] = { 0x00, 0x00, 0xC0, 0xE0, 0xF0, 0xF8, 0xFC };
 //待解决问题,支持注释
 
 static char hex_table[128]=
