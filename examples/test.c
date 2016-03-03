@@ -76,7 +76,6 @@ void create_objects()
 
 	root=json_object_new();
 	json_object_add(root, "Image", img=json_object_new());
-	//cJSON_AddNumberToObject(img,"Width",800);
 	json_object_add(img,"Width",json_number_new(800));
 	json_object_add(img,"Height",json_number_new(600));
 	json_object_add(img,"Title",json_string_new("View from 15th Floor"));
@@ -152,36 +151,8 @@ void test()
 int main (int argc, const char * argv[]) 
 {
 	char text1[]="{\n\"name\": \"Jack (\\\"Bee\\\") Nimble\", \n\"format\": {\"type\":       \"rect\", \n\"width\":      1920, \n\"height\":     1080, \n\"interlace\":  false,\"frame rate\": 24\n}\n}";	
-	//char text2[]="[\"Sunday\", \"Monday\", \"Tuesday\", \"Wednesday\", \"Thursday\", \"Friday\", \"Saturday\"]";
-	//char text3[]="[\n    [0, -1, 0],\n    [1, 0, 0],\n    [0, 0, 1]\n	]\n";
-	//char text4[]="{\n		\"Image\": {\n			\"Width\":  800,\n			\"Height\": 600,\n			\"Title\":  \"View from 15th Floor\",\n			\"Thumbnail\": {\n				\"Url\":    \"http:/*www.example.com/image/481989943\",\n				\"Height\": 125,\n				\"Width\":  \"100\"\n			},\n			\"IDs\": [116, 943, 234, 38793]\n		}\n	}";
-	//char text5[]="[\n	 {\n	 \"precision\": \"zip\",\n	 \"Latitude\":  37.7668,\n	 \"Longitude\": -122.3959,\n	 \"Address\":   \"\",\n	 \"City\":      \"SAN FRANCISCO\",\n	 \"State\":     \"CA\",\n	 \"Zip\":       \"94107\",\n	 \"Country\":   \"US\"\n	 },\n	 {\n	 \"precision\": \"zip\",\n	 \"Latitude\":  37.371991,\n	 \"Longitude\": -122.026020,\n	 \"Address\":   \"\",\n	 \"City\":      \"SUNNYVALE\",\n	 \"State\":     \"CA\",\n	 \"Zip\":       \"94085\",\n	 \"Country\":   \"US\"\n	 }\n	 ]";
-	//
+	
 	doit(text1);
-	//doit(text2);	
-	//doit(text3);
-	//doit(text4);
-	//doit(text5);
-
-//	dofile("../../tests/test1"); 
-//	dofile("../../tests/test2"); 
-//	dofile("../../tests/test3"); 
-//	dofile("../../tests/test4"); 
-//	dofile("../../tests/test5"); 
-
-//objectchild > 1,array->type if array or object
-//		"{\
-//            \"aStr\": \"aaaaaaa\", \
-//            \"subobject_1\": \
-//            { \
-//                \"bStr\": \"bbbbbbb\", \
-//                \"subobject_2\": \
-//                {\
-//                    \"cStr\": \"ccccccc\"\
-//                } \
-//            }, \
-//            \"xStr\": \"xxxxxxx\" \
-//        }";
 	test();
 	create_objects();
 	

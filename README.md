@@ -81,7 +81,6 @@ void create_objects()
 
 	root=json_object_new();
 	json_object_add(root, "Image", img=json_object_new());
-	//cJSON_AddNumberToObject(img,"Width",800);
 	json_object_add(img,"Width",json_number_new(800));
 	json_object_add(img,"Height",json_number_new(600));
 	json_object_add(img,"Title",json_string_new("View from 15th Floor"));
