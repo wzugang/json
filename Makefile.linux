@@ -12,7 +12,7 @@ libjson.so:
 	$(CC) -shared -o $@ json.o
 	
 libjson.a:
-	ar -rcs $@ jsona.o
+	ar -rcs $@ json.o
 
 .PHONY:clean
 clean:
