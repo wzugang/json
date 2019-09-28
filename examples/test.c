@@ -148,13 +148,77 @@ void test()
 	json_delete(tf);
 }
 
-int main (int argc, const char * argv[]) 
+void copystr(char* dst, char* src, int start, int end)
 {
-	char text1[]="{\n\"name\": \"Jack (\\\"Bee\\\") Nimble\", \n\"format\": {\"type\":       \"rect\", \n\"width\":      1920, \n\"height\":     1080, \n\"interlace\":  false,\"frame rate\": 24\n}\n}";	
+    int i,j=0;
+    for(i=start; i<=end;i++,j++)
+    {
+        *(dst+j) = *(src+i);
+    }
+    *(dst+j) = '\0';
+}
+
+void json_file_add_string(char* file, char* path, char* value)
+{
+    char* p;
+    char buff[256];
+    int pstart=0;
+    int pend=0;
+    json_ht jst = NULL;
+    json_ht jsh = json_parse_file(file);
+
+    jst = jsh;
+    while(*(path+pend) != '\0')
+    {
+        if(*(path+pend) == '.')
+        {
+            copystr(buff, path, pstart, pend-1);
+            jst = json_object_get(jst, buff);
+            if(NULL == jst)
+            {
+				//是否需要新增
+                return;
+            }
+            pstart = pend+1;
+        }
+        pend++;
+    }
+    
+    if(NULL != jst)
+    {
+        copystr(buff, path, pstart, pend-1);
+        jst = json_object_get(jst, buff);
+        if(NULL == jst)
+        {
+            return;
+        }
+		json_ht jv = json_string_new(value);
+		json_array_add(jst, jv); //add value without key
+        //json_object_add_string(jst, buff, value);
+    }
+
+    p = json_print(jsh, 1);
+    if(NULL != p)
+    {
+        printf("%s\n", p);
+    }
+    json_delete(jsh);
+    json_free(p);
+}
+
+int main (int argc, char * argv[]) 
+{
+	//char text1[]="{\n\"name\": \"Jack (\\\"Bee\\\") Nimble\", \n\"format\": {\"type\":       \"rect\", \n\"width\":      1920, \n\"height\":     1080, \n\"interlace\":  false,\"frame rate\": 24\n}\n}";	
 	
-	doit(text1);
-	test();
-	create_objects();
+	//doit(text1);
+	//test();
+	//create_objects();
+	
+	json_file_add_string(argv[1], argv[2], argv[3]);
 	
 	return 0;
 }
+
+//./testd test1.json subobj.subjsonobj hehehehheheh
+
+

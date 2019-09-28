@@ -9,6 +9,12 @@
 #include <ctype.h>
 
 //#define BUILD_SHARED
+//json_sort
+//json_patch
+//bool name is bool,need to compare valueint
+// ssh-keygen -t rsa -C "wzugang"
+// cat ~/.ssh/id_rsa.pub
+// https://github.com/settings/keys
 
 #define JWINDOWS 	( defined(WIN32) || defined(_WIN32) || defined(WINNT) || defined(__MINGW32__) || defined(__MINGW64__) )
 
@@ -61,13 +67,15 @@ JSON_NULL,
 JSON_NUMBER,
 JSON_STRING,
 JSON_ARRAY,
-JSON_OBJECT
+JSON_OBJECT,
+JSON_INVALID	//add
 }json_type_t,*json_type_ht;
 
-//item为引用节点
+//节点值为节点引用
 #define JSON_IS_REFERENCE 		128
-//节点名称为常量
-#define JSON_IS_STR_CONST		512
+//节点名称为常量引用
+#define JSON_IS_STR_CONST		256
+
 
 //所有数据类型结构相同,占用空间会大一点
 typedef struct __json_t
@@ -76,7 +84,7 @@ typedef struct __json_t
 	struct __json_t 		*child;
 	int						type;
 	char 					*name;
-	char					*valuestring;
+	char					*valuestring;//number,string,bool共用,number用于格式化
 	int 					valueint;
 	double					valuedouble;
 }json_t,*json_ht;
@@ -94,13 +102,16 @@ typedef struct __json_buffer_t
 	int offset; 
 }json_buffer_t,*json_buffer_ht;
 
+typedef int json_bool;
+
 /////////////////////////////////////////////////////////////////////////////////////////////////
 #define JZERO(op) 			memset(op, 0, sizeof(__typeof__(*op)))
 #define JZERO_LEN(op,len) 	memset(op, 0, len)
 #define JALIGN(x,align)		(((x) + (align) - 1) & ~((align)-1))
+#define JCOPYCHAR(dst, src) (*(dst) = *(src), dst++)
 
+#define IS_NUM(c)			((c) <= '9' && (c) >= '0')
 
-#define IS_NUM(c)		((c) <= '9' && (c) >= '0')
 
 //待解决问题,支持注释
 
@@ -116,6 +127,8 @@ static char hex_table[128]=
 	-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1
 };
 
+
+JEXPORT JAPI char* 								json_strdup(const char* str);
 JEXPORT JAPI void 								json_hooks_init(json_hooks_ht hooks);
 JEXPORT JAPI void*								json_alloc(size_t size);
 JEXPORT JAPI void								json_free(void *p);
@@ -127,16 +140,17 @@ JEXPORT JAPI char*								json_print(json_ht item,int fmt);
 JEXPORT JAPI char*								json_print_buffered(json_ht item,int size,int fmt);
 JEXPORT JAPI json_ht 							json_duplicate(json_ht item,int recurse);
 JEXPORT JAPI void 								json_minify(char *json);
+JEXPORT JAPI json_bool 							json_compare(json_ht item, json_ht to); //child object must be sorted
 JEXPORT JAPI const char*						json_error_get(void);
 JEXPORT JAPI void 								json_error_clear(void);
-					
+
 JEXPORT JAPI json_ht 							json_null_new(void); 
 JEXPORT JAPI json_ht 							json_true_new(void); 
 JEXPORT JAPI json_ht 							json_false_new(void);
 JEXPORT JAPI json_ht 							json_bool_new(int b);
 JEXPORT JAPI json_ht 							json_number_new(double num);
 JEXPORT JAPI json_ht 							json_string_new(const char *string);
-						
+
 JEXPORT JAPI json_ht 							json_array_new(void);
 JEXPORT JAPI json_ht 							json_array_int_new(const int *numbers,int count);
 JEXPORT JAPI json_ht 							json_array_float_new(const float *numbers,int count);
@@ -148,17 +162,19 @@ JEXPORT JAPI void 								json_array_replace(json_ht array,int which,json_ht new
 JEXPORT JAPI json_ht 							json_array_detach(json_ht array,int which);
 JEXPORT JAPI void 								json_array_del(json_ht array,int which);
 JEXPORT JAPI void 								json_array_reference_add(json_ht array,json_ht item);
-JEXPORT JAPI json_ht 							json_array_get(json_ht array,int item);
-JEXPORT JAPI int 								json_array_size(json_ht array);
-					
+JEXPORT JAPI json_ht 							json_array_get(json_ht array,int item);		//object can also use this function
+JEXPORT JAPI int 								json_array_size(json_ht array);				//object can also use this function
+
 JEXPORT JAPI json_ht 							json_object_new(void);
 JEXPORT JAPI json_ht 							json_object_get(json_ht object,const char *string);
 JEXPORT JAPI void 								json_object_add(json_ht object,const char *string,json_ht item);
-JEXPORT JAPI void 								json_object_add_cs(json_ht object,const char *string,json_ht item);
+JEXPORT JAPI void 								json_object_const_add(json_ht object,const char *string,json_ht item);
 JEXPORT JAPI void 								json_object_reference_add(json_ht object,const char *string,json_ht item);
-JEXPORT JAPI json_ht 							json_object_detach(json_ht object,const char *string);
 JEXPORT JAPI void 								json_object_del(json_ht object,const char *string);
 JEXPORT JAPI void 								json_object_replace(json_ht object,const char *string,json_ht newitem);
+JEXPORT JAPI json_ht 							json_object_detach(json_ht object,const char *string);
+JEXPORT JAPI json_ht 							json_object_detach_child(json_ht object, json_ht item);
+JEXPORT JAPI json_bool 							json_object_contains(json_ht object,const char *string);
 
 #define json_object_add_null(object,name)		json_object_add(object, name, json_null_new())
 #define json_object_add_true(object,name)		json_object_add(object, name, json_true_new())
@@ -167,7 +183,8 @@ JEXPORT JAPI void 								json_object_replace(json_ht object,const char *string,
 #define json_object_add_number(object,name,n)	json_object_add(object, name, json_number_new(n))
 #define json_object_add_string(object,name,s)	json_object_add(object, name, json_string_new(s))
 
-#define json_typeof(object)      				((object)->type)
+//类型小于16,所以mask取0x0F
+#define json_typeof(object)      				((object)->type & 0x0F)
 #define json_is_object(object)   				(object && json_typeof(object) == JSON_OBJECT)
 #define json_is_array(object)    				(object && json_typeof(object) == JSON_ARRAY)
 #define json_is_string(object)   				(object && json_typeof(object) == JSON_STRING)
@@ -176,15 +193,19 @@ JEXPORT JAPI void 								json_object_replace(json_ht object,const char *string,
 #define json_is_false(object)    				(object && json_typeof(object) == JSON_FALSE)
 #define json_is_null(object)     				(object && json_typeof(object) == JSON_NULL)
 #define json_is_bool(object)  					(object_is_true(object) || json_is_false(object))
+#define json_is_invalid(object) 				(!object || json_typeof(object) == JSON_INVALID)
 
 //整形赋值的时候double也必须赋值
 #define json_set_int(object,val)				((object)?(object)->valueint=(object)->valuedouble=(val):(val))
 #define json_set_number(object,val)				((object)?(object)->valueint=(object)->valuedouble=(val):(val))
+#define json_set_string(object,str)				((object)?(object)->valuestring=json_strdup(str):(str))
+#define json_get_string(object)					((object)->valuestring)
+
 
 
 //number整形与浮点型区分,待改善
-#define json_is_integer(object)  				(object && json_typeof(object) == JSON_INTEGER)
-#define json_is_real(object)     				(object && json_typeof(object) == JSON_REAL)
+//#define json_is_integer(object)  				(object && json_typeof(object) == JSON_INTEGER)
+//#define json_is_real(object)     				(object && json_typeof(object) == JSON_REAL)
 
 
 #endif

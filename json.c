@@ -2,12 +2,16 @@
 
 static const char *json_error;
 
+//需要增加排序、补丁等
 //内存管理函数设置
 static void *(*do_alloc)(size_t size)			= malloc;
 static void (*do_free)(void *p) 				= free;
 
-void *json_alloc(size_t size)					{ if(!size)return NULL; return (*do_alloc)(size); }
+void *json_alloc(size_t size)					{ void* addr; if(!size)return NULL; addr = (*do_alloc)(size); if(addr) JZERO_LEN(addr, size); return addr; }
 void json_free(void *p) 						{ if(!p)return;(*do_free)(p); }
+
+//常量类型转换
+JSTATIC void* json_const_cast(const void* string) { return (void*)string; }
 
 //跳过小于32的字符
 JSTATIC const char *skip(const char *in) {while (in && *in && (unsigned char)*in<=32) in++; return in;}
@@ -15,7 +19,7 @@ JSTATIC const char *skip(const char *in) {while (in && *in && (unsigned char)*in
 const char *json_error_get(void) {return json_error;}
 void json_error_clear(void) {json_error=NULL;}
 
-JSTATIC char* json_strdup(const char* str)
+char* json_strdup(const char* str)
 {
       int len;
       char* copy;
@@ -33,6 +37,13 @@ JSTATIC int json_strcasecmp(const char *s1,const char *s2)
 	return tolower(*(const unsigned char *)s1) - tolower(*(const unsigned char *)s2);
 }
 
+JSTATIC int json_strcmp(const char *s1,const char *s2)
+{
+	if (!s1) return (s1==s2)?0:1;if (!s2) return 1;
+	for(; (*s1) == (*s2); ++s1, ++s2)	if(*s1 == 0)	return 0;
+	return (*(const unsigned char *)s1) - (*(const unsigned char *)s2);
+}
+
 void json_hooks_init(json_hooks_ht hooks)
 {
     if (NULL == hooks) { do_alloc = malloc;do_free = free;} else { do_alloc = (hooks->alloc)?hooks->alloc:malloc;do_free = (hooks->free)?hooks->free:free;}
@@ -40,7 +51,7 @@ void json_hooks_init(json_hooks_ht hooks)
 
 JSTATIC json_ht json_new_item(void)
 {
-	json_ht item = (json_ht)json_alloc(sizeof(json_t));if (item) JZERO(item);return item;
+	return (json_ht)json_alloc(sizeof(json_t));
 }
 
 void json_delete(json_ht item)
@@ -81,7 +92,6 @@ JSTATIC const char *parse_string(json_ht item,const char *str)
 	while (*ptr!='\"' && *ptr && ++len) if (*ptr++ == '\\') ptr++;//自动跳过转义字符
 	
 	if (!(out=(char*)json_alloc(len+1))) return NULL;
-	
 	ptr=str+1;ptr2=out;
 	while (*ptr!='\"' && *ptr)
 	{
@@ -102,7 +112,7 @@ JSTATIC const char *parse_string(json_ht item,const char *str)
 						if (uc2<0xDC00 || uc2>0xDFFF)		break;//invalid second-half of surrogate
 						uc=0x10000 + (((uc&0x3FF)<<10) | (uc2&0x3FF));
 					}
-					len=4;if (uc<0x80) len=1;else if (uc<0x800) len=2;else if (uc<0x10000) len=3; ptr2+=len;				
+					len=4;if (uc<0x80) len=1;else if (uc<0x800) len=2;else if (uc<0x10000) len=3; ptr2+=len;
 					switch (len) 
 					{
 						case 4: *--ptr2 =((uc | 0x80) & 0xBF); uc >>= 6;
@@ -124,24 +134,28 @@ JSTATIC const char *parse_string(json_ht item,const char *str)
 	return ptr;
 }
 
-//解析数字,并返回解析后字符串的偏移指针
+//解析数字,并返回解析后字符串的偏移指针,数字也保存字符串
 JSTATIC const char *parse_number(json_ht item,const char *num)
 {
 	double n=0,sign=1,scale=0;int subscale=0,signsubscale=1;
-
-	if (*num=='-') sign=-1,num++;//符号
+	char *out=NULL, *tmp=NULL;
+	
+	if (!(out=(char*)json_alloc(32))) return NULL;tmp = out;
+	//if(item->valuestring) { json_free(item->valuestring); }
+	if (*num=='-') sign=-1, JCOPYCHAR(tmp,num), num++;//符号
 	//if (*num=='0') num++;
 	//if (*num>='1' && *num<='9')	do	n=(n*10.0)+(*num++ -'0');	while (*num>='0' && *num<='9');	//数字
-	while (IS_NUM(*num))n=(n*10.0)+(*num++ -'0');
-	if (*num=='.' && IS_NUM(num[1])) {num++; while (IS_NUM(*num))n=(n*10.0)+(*num++ -'0'),scale--;}	//小数部分
+	while (IS_NUM(*num))JCOPYCHAR(tmp,num), n=(n*10.0)+(*num++ -'0');
+	if (*num=='.' && IS_NUM(num[1])) { JCOPYCHAR(tmp,num),num++; while (IS_NUM(*num))JCOPYCHAR(tmp,num), n=(n*10.0)+(*num++ -'0'),scale--;} //小数部分
 	if (*num=='e' || *num=='E')	//科学计数法
-	{	num++;if (*num=='+') num++;	else if (*num=='-') signsubscale=-1,num++;//符号
-		while (IS_NUM(*num)) subscale=(subscale*10)+(*num++ - '0');//数字
+	{	JCOPYCHAR(tmp,num),num++;if (*num=='+') JCOPYCHAR(tmp,num),num++;	else if (*num=='-') signsubscale=-1, JCOPYCHAR(tmp,num), num++;//符号
+		while (IS_NUM(*num)) JCOPYCHAR(tmp,num), subscale=(subscale*10)+(*num++ - '0');//数字
 	}
 	n=sign*n*pow(10.0,(scale+subscale*signsubscale));//number = +/- number.fraction * 10^+/- exponent
 	item->valuedouble=n;
 	item->valueint=(int)n;
 	item->type=JSON_NUMBER;
+	item->valuestring = out;
 	return num;
 }
 
@@ -263,7 +277,13 @@ JSTATIC char *print_number(json_ht item,json_buffer_ht p)
 {
 	char *str=NULL;
 	double d=item->valuedouble;
-	if (d==0)
+	// add 
+	if(item->valuestring)
+	{
+		if(p) str=string_ensure(p,strlen(item->valuestring)+1);
+		else str=(char*)json_alloc(strlen(item->valuestring)+1);
+		if(str) sprintf(str, "%s", item->valuestring);
+	}else if (d==0)
 	{
 		if (p) str=string_ensure(p,2);
 		else str=(char*)json_alloc(2);
@@ -450,21 +470,22 @@ JSTATIC char *print_object(json_ht item,int depth,int fmt,json_buffer_ht p)
 				for (j=0;j<depth;j++) *ptr++='\t';
 				p->offset+=depth;
 			}
-			print_valuestring(child->name,p);
-			p->offset=json_buffer_update(p);
-			
-			//if(child->child)
-			//	len=fmt?depth+1:1;
-			//else
-				len=fmt?2:1;
-			ptr=string_ensure(p,len); if (!ptr) return 0;
-			*ptr++=':';if (fmt) *ptr++='\t';
-			//*ptr++=':';if (fmt) *ptr++='\n';
-			//if(child->child && (json_is_array(child) || json_is_object(child)))		//add
-			//if(child->child)										//add
-			//	if (fmt) for (i=0;i<depth-1;i++) *ptr++='\t';		//add
-			p->offset+=len;
-			
+			if(child->name) {
+				print_valuestring(child->name,p);
+				p->offset=json_buffer_update(p);
+				//if(child->child)
+				//	len=fmt?depth+1:1;
+				//else
+					len=fmt?2:1;
+				ptr=string_ensure(p,len); if (!ptr) return 0;
+				*ptr++=':'; if (fmt) *ptr++='\t';
+				//*ptr++=':';if (fmt) *ptr++='\n';
+				//if(child->child && (json_is_array(child) || json_is_object(child)))		//add
+				//if(child->child)										//add
+				//	if (fmt) for (i=0;i<depth-1;i++) *ptr++='\t';		//add
+				p->offset+=len;
+			}
+
 			print_value(child,depth,fmt,p);
 			p->offset=json_buffer_update(p);
 
@@ -496,7 +517,8 @@ JSTATIC char *print_object(json_ht item,int depth,int fmt,json_buffer_ht p)
 			if (fmt) len+=depth;
 		while (child)
 		{
-			names[i]=str=print_valuestring(child->name,0);
+			//name can be empty
+			if(child->name)names[i]=str=print_valuestring(child->name,0); else names[i] = NULL;
 			entries[i++]=ret=print_value(child,depth,fmt,0);
 			if (str && ret) len+=strlen(ret)+strlen(str)+2+(fmt?2+depth:0); else fail=1;
 			child=child->next;
@@ -523,8 +545,7 @@ JSTATIC char *print_object(json_ht item,int depth,int fmt,json_buffer_ht p)
 		for (i=0;i<numentries;i++)
 		{
 			if (fmt) for (j=0;j<depth;j++) *ptr++='\t';
-			tmplen=strlen(names[i]);memcpy(ptr,names[i],tmplen);ptr+=tmplen;
-			*ptr++=':';if (fmt) *ptr++='\t';
+			if(names[i]) { tmplen=strlen(names[i]);memcpy(ptr,names[i],tmplen);ptr+=tmplen; *ptr++=':'; if (fmt) *ptr++='\t'; }
 			//*ptr++=':';if (fmt) *ptr++='\n';
 			strcpy(ptr,entries[i]);ptr+=strlen(entries[i]);
 			if (i!=numentries-1) *ptr++=',';
@@ -545,7 +566,7 @@ JSTATIC char *print_value(json_ht item,int depth,int fmt,json_buffer_ht p)
 	if (!item) return NULL;
 	if (p)
 	{
-		switch ((item->type)&0x7f)
+		switch (json_typeof(item))
 		{
 			case JSON_NULL:		{out=string_ensure(p,5); if (out) strcpy(out,"null"); break;}
 			case JSON_FALSE:	{out=string_ensure(p,6); if (out) strcpy(out,"false");	break;}
@@ -558,7 +579,7 @@ JSTATIC char *print_value(json_ht item,int depth,int fmt,json_buffer_ht p)
 	}
 	else
 	{
-		switch ((item->type)&0x7f)
+		switch (json_typeof(item))
 		{
 			case JSON_NULL:		out=json_strdup("null"); break;
 			case JSON_FALSE:	out=json_strdup("false"); break;
@@ -586,7 +607,8 @@ char *json_print_buffered(json_ht item,int size,int fmt)
 
 int json_array_size(json_ht array)								{json_ht c=array->child;int i=0;while(c)i++,c=c->next;return i;}
 json_ht json_array_get(json_ht array,int item)				{json_ht c=array->child;  while (c && item>0) item--,c=c->next; return c;}
-json_ht json_object_get(json_ht object,const char *string)	{json_ht c=object->child; while (c && json_strcasecmp(c->name,string)) c=c->next; return c;}
+json_ht json_object_get(json_ht object,const char *string)	{json_ht c=object->child; while (c && json_strcmp(c->name,string)) c=c->next; return c;}
+json_bool json_object_contains(json_ht object,const char *string)	{json_ht c=object->child; while (c && json_strcmp(c->name,string)) c=c->next; return (c!=NULL);}
 
 JSTATIC void suffix_object(json_ht prev,json_ht item) {prev->next=item;item->prev=prev;}
 
@@ -597,7 +619,7 @@ void json_array_add(json_ht array,json_ht item) {json_ht c=array->child;if (!ite
 void json_object_add(json_ht object,const char *string,json_ht item) {if (!item) return; if (item->name) json_free(item->name);item->name=json_strdup(string);json_array_add(object,item);}
 
 //object的name为常量字符串，直接使用指针
-void json_object_add_cs(json_ht object,const char *string,json_ht item) {if (!item) return; if (!(item->type&JSON_IS_STR_CONST) && item->name) json_free(item->name);item->name=(char*)string;item->type|=JSON_IS_STR_CONST;json_array_add(object,item);}
+void json_object_const_add(json_ht object,const char *string,json_ht item) {if (!item) return; if (!(item->type&JSON_IS_STR_CONST) && item->name) json_free(item->name);item->name=(char*)string;item->type|=JSON_IS_STR_CONST;json_array_add(object,item);}
 
 void json_array_reference_add(json_ht array,json_ht item) {json_array_add(array,create_reference(item));}
 
@@ -609,7 +631,10 @@ json_ht json_array_detach(json_ht array,int which) {json_ht c=array->child;while
 //将array中索引为which的删除
 void json_array_del(json_ht array,int which) {json_delete(json_array_detach(array,which));}
 
-json_ht json_object_detach(json_ht object,const char *string) {int i=0;json_ht c=object->child;while (c && json_strcasecmp(c->name,string)) i++,c=c->next;if (c) return json_array_detach(object,i);return NULL;}
+json_ht json_object_detach(json_ht object,const char *string) {int i=0;json_ht c=object->child;while (c && json_strcmp(c->name,string)) i++,c=c->next;if (c) return json_array_detach(object,i);return NULL;}
+
+json_ht json_object_detach_child(json_ht object, json_ht item) { if ((object == NULL) || (item == NULL)) { return NULL; } if (item->prev != NULL) { item->prev->next = item->next; } if (item->next != NULL) { item->next->prev = item->prev; } if (item == object->child) { object->child = item->next; } item->prev = NULL; item->next = NULL; return item; }
+
 void json_object_del(json_ht object,const char *string) {json_delete(json_object_detach(object,string));}
 
 //array插入操作
@@ -617,7 +642,7 @@ void json_array_insert(json_ht array,int which,json_ht newitem) {json_ht c=array
 
 //替换object中的item
 void json_array_replace(json_ht array,int which,json_ht newitem) {json_ht c=array->child;while (c && which>0) c=c->next,which--;if (!c) return;newitem->next=c->next;newitem->prev=c->prev;if (newitem->next) newitem->next->prev=newitem;if (c==array->child) array->child=newitem; else newitem->prev->next=newitem;c->next=c->prev=0;json_delete(c);}
-void json_object_replace(json_ht object,const char *string,json_ht newitem){int i=0;json_ht c=object->child;while(c && json_strcasecmp(c->name,string))i++,c=c->next;if(c){newitem->name=json_strdup(string);json_array_replace(object,i,newitem);}}
+void json_object_replace(json_ht object,const char *string,json_ht newitem){int i=0;json_ht c=object->child;while(c && json_strcmp(c->name,string))i++,c=c->next;if(c){newitem->name=json_strdup(string);json_array_replace(object,i,newitem);}}
 
 json_ht json_null_new(void)						{json_ht item=json_new_item();if(item)item->type=JSON_NULL;return item;}
 json_ht json_true_new(void)						{json_ht item=json_new_item();if(item)item->type=JSON_TRUE;return item;}
@@ -632,6 +657,30 @@ json_ht json_array_int_new(const int *numbers,int count)			{int i;json_ht n=0,p=
 json_ht json_array_float_new(const float *numbers,int count)		{int i;json_ht n=0,p=0,a=json_array_new();for(i=0;a && i<count;i++){n=json_number_new(numbers[i]);if(!i)a->child=n;else suffix_object(p,n);p=n;}return a;}
 json_ht json_array_double_new(const double *numbers,int count)		{int i;json_ht n=0,p=0,a=json_array_new();for(i=0;a && i<count;i++){n=json_number_new(numbers[i]);if(!i)a->child=n;else suffix_object(p,n);p=n;}return a;}
 json_ht json_array_string_new(const char **strings,int count)		{int i;json_ht n=0,p=0,a=json_array_new();for(i=0;a && i<count;i++){n=json_string_new(strings[i]);if(!i)a->child=n;else suffix_object(p,n);p=n;}return a;}
+
+
+//需要递归
+json_bool json_compare(json_ht item, json_ht to)
+{
+	if(item == NULL) if(to == NULL) return JSON_TRUE; else return JSON_FALSE;
+	if(to == NULL) return JSON_FALSE;
+	if(json_typeof(item) != json_typeof(to)) return JSON_FALSE;
+	if(item == to) return JSON_TRUE; //the same json object
+	if(json_strcmp(item->name, to->name) != 0) return JSON_FALSE;
+    switch (json_typeof(item)) { case JSON_FALSE: case JSON_TRUE: case JSON_STRING: {
+			return (json_strcmp(item->valuestring, to->valuestring) == 0);
+		};
+		case JSON_NUMBER: {
+			if(item->valuestring) { if(to->valuestring) return (json_strcmp(item->valuestring, to->valuestring) == 0); else return JSON_FALSE; }
+			if(to->valuestring) return JSON_FALSE;
+			return fabs(item->valuedouble - to->valuedouble)<=DBL_EPSILON;
+		};
+        case JSON_ARRAY: case JSON_OBJECT: {
+			json_ht item_child = item->child; json_ht to_child = to->child;
+			for (; (item_child != NULL) && (to_child != NULL);) { if (!json_compare(item_child, to_child)) { return JSON_FALSE; } item_child = item_child->next; to_child = to_child->next; }
+            if (item_child != to_child) { return JSON_FALSE; } return JSON_TRUE;
+		}; default: return JSON_FALSE;}
+}
 
 json_ht json_duplicate(json_ht item,int recurse)
 {
@@ -699,8 +748,6 @@ int json_saveto_file(json_ht item,char *filename)
 	fwrite(data,1,len,f);fclose(f);json_free(data);
 	return 0;
 }
-
-
 
 
 
