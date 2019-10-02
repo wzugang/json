@@ -141,6 +141,10 @@ JEXPORT JAPI char*								json_print_buffered(json_ht item,int size,int fmt);
 JEXPORT JAPI json_ht 							json_duplicate(json_ht item,int recurse);
 JEXPORT JAPI void 								json_minify(char *json);
 JEXPORT JAPI json_bool 							json_compare(json_ht item, json_ht to); //child object must be sorted
+JEXPORT JAPI void 								json_object_sort(json_ht object); 	//对象排序
+JEXPORT JAPI void 								json_array_sort(json_ht array);		//数组节点中的子对象排序
+JEXPORT JAPI json_ht 							json_child_get(json_ht object, char* path); //根据路径获取子节点
+JEXPORT JAPI void 								json_string_copy(char* dst, char* src, int start, int end); //字符串拷贝函数
 JEXPORT JAPI const char*						json_error_get(void);
 JEXPORT JAPI void 								json_error_clear(void);
 

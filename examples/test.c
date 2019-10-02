@@ -148,15 +148,6 @@ void test()
 	json_delete(tf);
 }
 
-void copystr(char* dst, char* src, int start, int end)
-{
-    int i,j=0;
-    for(i=start; i<=end;i++,j++)
-    {
-        *(dst+j) = *(src+i);
-    }
-    *(dst+j) = '\0';
-}
 
 void json_file_add_string(char* file, char* path, char* value)
 {
@@ -172,7 +163,7 @@ void json_file_add_string(char* file, char* path, char* value)
     {
         if(*(path+pend) == '.')
         {
-            copystr(buff, path, pstart, pend-1);
+            json_string_copy(buff, path, pstart, pend-1);
             jst = json_object_get(jst, buff);
             if(NULL == jst)
             {
@@ -186,7 +177,7 @@ void json_file_add_string(char* file, char* path, char* value)
     
     if(NULL != jst)
     {
-        copystr(buff, path, pstart, pend-1);
+        json_string_copy(buff, path, pstart, pend-1);
         jst = json_object_get(jst, buff);
         if(NULL == jst)
         {
@@ -202,10 +193,67 @@ void json_file_add_string(char* file, char* path, char* value)
     {
         printf("%s\n", p);
     }
-    json_delete(jsh);
     json_free(p);
+
+	json_object_sort(jsh);
+    p = json_print(jsh, 1);
+    if(NULL != p)
+    {
+        printf("%s\n", p);
+    }
+    json_free(p);
+	
+	json_bool is_equal = json_compare(jsh, jsh);
+	printf("is_equal:%d\n", is_equal);
+	
+    json_ht jsh2 = json_parse_file(file);
+	is_equal = json_compare(jsh, jsh2);
+	printf("is_equal:%d\n", is_equal);
+	
+    json_ht jsh3 = json_parse_file(file);
+	is_equal = json_compare(jsh2, jsh3);
+	printf("is_equal:%d\n", is_equal);
+	
+	json_ht jsh4 = json_child_get(jsh, ".subobj.array5:2:0:0.aaa");
+	p = json_print(jsh4, 1);
+    if(NULL != p)
+    {
+        printf("json_child_get object item 1:%s\n", p);
+    }
+    json_free(p);
+	
+	
+	jsh4 = json_child_get(jsh, ".subobj.array5:2:0:0");
+	p = json_print(jsh4, 1);
+    if(NULL != p)
+    {
+        printf("json_child_get array item 1:%s\n", p);
+    }
+    json_free(p);
+	
+	jsh4 = json_child_get(jsh, ".subobj.array5:2:0:0.");
+	p = json_print(jsh4, 1);
+    if(NULL != p)
+    {
+        printf("json_child_get array item 2:%s\n", p);
+    }
+    json_free(p);
+	
+	jsh4 = json_child_get(jsh, ".subobj.array5:2:0:0:");
+	p = json_print(jsh4, 1);
+    if(NULL != p)
+    {
+        printf("json_child_get array item 3:%s\n", p);
+    }
+    json_free(p);
+	
+    json_delete(jsh);
+	json_delete(jsh2);
+	json_delete(jsh3);
+	//json_delete(jsh4);
 }
 
+//json_print,当前只打印值,不打印name
 int main (int argc, char * argv[]) 
 {
 	//char text1[]="{\n\"name\": \"Jack (\\\"Bee\\\") Nimble\", \n\"format\": {\"type\":       \"rect\", \n\"width\":      1920, \n\"height\":     1080, \n\"interlace\":  false,\"frame rate\": 24\n}\n}";	
@@ -214,11 +262,14 @@ int main (int argc, char * argv[])
 	//test();
 	//create_objects();
 	
-	json_file_add_string(argv[1], argv[2], argv[3]);
+	json_file_add_string("test1.json", "subobj.array2", "hehehehheheh");
+	//json_file_add_string(argv[1], argv[2], argv[3]);
 	
+
 	return 0;
 }
 
-//./testd test1.json subobj.subjsonobj hehehehheheh
+
+
 
 

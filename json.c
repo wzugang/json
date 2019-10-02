@@ -44,6 +44,8 @@ JSTATIC int json_strcmp(const char *s1,const char *s2)
 	return (*(const unsigned char *)s1) - (*(const unsigned char *)s2);
 }
 
+#define json_string_compare json_strcmp
+
 void json_hooks_init(json_hooks_ht hooks)
 {
     if (NULL == hooks) { do_alloc = malloc;do_free = free;} else { do_alloc = (hooks->alloc)?hooks->alloc:malloc;do_free = (hooks->free)?hooks->free:free;}
@@ -470,21 +472,20 @@ JSTATIC char *print_object(json_ht item,int depth,int fmt,json_buffer_ht p)
 				for (j=0;j<depth;j++) *ptr++='\t';
 				p->offset+=depth;
 			}
-			if(child->name) {
-				print_valuestring(child->name,p);
-				p->offset=json_buffer_update(p);
-				//if(child->child)
-				//	len=fmt?depth+1:1;
-				//else
-					len=fmt?2:1;
-				ptr=string_ensure(p,len); if (!ptr) return 0;
-				*ptr++=':'; if (fmt) *ptr++='\t';
-				//*ptr++=':';if (fmt) *ptr++='\n';
-				//if(child->child && (json_is_array(child) || json_is_object(child)))		//add
-				//if(child->child)										//add
-				//	if (fmt) for (i=0;i<depth-1;i++) *ptr++='\t';		//add
-				p->offset+=len;
-			}
+
+			print_valuestring(child->name,p);
+			p->offset=json_buffer_update(p);
+			//if(child->child)
+			//	len=fmt?depth+1:1;
+			//else
+				len=fmt?2:1;
+			ptr=string_ensure(p,len); if (!ptr) return 0;
+			*ptr++=':'; if (fmt) *ptr++='\t';
+			//*ptr++=':';if (fmt) *ptr++='\n';
+			//if(child->child && (json_is_array(child) || json_is_object(child)))		//add
+			//if(child->child)										//add
+			//	if (fmt) for (i=0;i<depth-1;i++) *ptr++='\t';		//add
+			p->offset+=len;
 
 			print_value(child,depth,fmt,p);
 			p->offset=json_buffer_update(p);
@@ -500,9 +501,7 @@ JSTATIC char *print_object(json_ht item,int depth,int fmt,json_buffer_ht p)
 		if (fmt)	for (i=0;i<depth-1;i++) *ptr++='\t';
 		*ptr++='}';*ptr=0;
 		out=(p->buffer)+i;
-	}
-	else
-	{
+	} else {
 		entries=(char**)json_alloc(numentries*sizeof(char*));
 		if (!entries) return 0;
 		names=(char**)json_alloc(numentries*sizeof(char*));
@@ -517,8 +516,8 @@ JSTATIC char *print_object(json_ht item,int depth,int fmt,json_buffer_ht p)
 			if (fmt) len+=depth;
 		while (child)
 		{
-			//name can be empty
-			if(child->name)names[i]=str=print_valuestring(child->name,0); else names[i] = NULL;
+			//name can not be empty
+			names[i]=str=print_valuestring(child->name,0);
 			entries[i++]=ret=print_value(child,depth,fmt,0);
 			if (str && ret) len+=strlen(ret)+strlen(str)+2+(fmt?2+depth:0); else fail=1;
 			child=child->next;
@@ -545,8 +544,7 @@ JSTATIC char *print_object(json_ht item,int depth,int fmt,json_buffer_ht p)
 		for (i=0;i<numentries;i++)
 		{
 			if (fmt) for (j=0;j<depth;j++) *ptr++='\t';
-			if(names[i]) { tmplen=strlen(names[i]);memcpy(ptr,names[i],tmplen);ptr+=tmplen; *ptr++=':'; if (fmt) *ptr++='\t'; }
-			//*ptr++=':';if (fmt) *ptr++='\n';
+			tmplen=strlen(names[i]);memcpy(ptr,names[i],tmplen);ptr+=tmplen; *ptr++=':'; if (fmt) *ptr++='\t';
 			strcpy(ptr,entries[i]);ptr+=strlen(entries[i]);
 			if (i!=numentries-1) *ptr++=',';
 			if (fmt) *ptr++='\n';*ptr=0;
@@ -676,10 +674,246 @@ json_bool json_compare(json_ht item, json_ht to)
 			return fabs(item->valuedouble - to->valuedouble)<=DBL_EPSILON;
 		};
         case JSON_ARRAY: case JSON_OBJECT: {
+			if(json_typeof(item) == JSON_ARRAY) {
+				json_array_sort(item);json_array_sort(to);
+			}else if(json_typeof(item) == JSON_OBJECT) {
+				json_object_sort(item);json_object_sort(to);
+			}
 			json_ht item_child = item->child; json_ht to_child = to->child;
 			for (; (item_child != NULL) && (to_child != NULL);) { if (!json_compare(item_child, to_child)) { return JSON_FALSE; } item_child = item_child->next; to_child = to_child->next; }
             if (item_child != to_child) { return JSON_FALSE; } return JSON_TRUE;
 		}; default: return JSON_FALSE;}
+}
+
+JSTATIC json_ht json_child_sort(json_ht child)
+{
+	json_ht first = child;
+    json_ht second = child;
+    json_ht current_item = child;
+    json_ht result = child;
+    json_ht result_tail = NULL;
+	
+	//no need to sort
+    if (child == NULL && child->next == NULL){ return result; }
+	//Test for child sorted
+    while ((current_item != NULL) && (current_item->next != NULL) && (json_string_compare((unsigned char*)current_item->name, (unsigned char*)current_item->next->name) < 0))
+    {
+        current_item = current_item->next;
+    }
+    if ((current_item == NULL) || (current_item->next == NULL))
+    {
+        return result;
+    }
+
+    //seprate one list int two
+    current_item = child;
+    while (current_item != NULL)
+    {
+        second = second->next;
+        current_item = current_item->next;
+        if (current_item != NULL)
+        {
+            current_item = current_item->next;
+        }
+    }
+    if ((second != NULL) && (second->prev != NULL))
+    {
+        second->prev->next = NULL;
+        second->prev = NULL;
+    }
+
+	//sort sublist
+    first = json_child_sort(first);
+    second = json_child_sort(second);
+    result = NULL;
+
+    //merge sublist
+    while ((first != NULL) && (second != NULL))
+    {
+        json_ht smaller = NULL;
+        if (json_string_compare((unsigned char*)first->name, (unsigned char*)second->name) < 0)
+        {
+            smaller = first;
+        }
+        else
+        {
+            smaller = second;
+        }
+		
+		//back insert
+        if (result == NULL)
+        {
+            result_tail = smaller;
+            result = smaller;
+        }
+        else
+        {
+            result_tail->next = smaller;
+            smaller->prev = result_tail;
+            result_tail = smaller;
+        }
+
+        if (first == smaller)
+        {
+            first = first->next;
+        }
+        else
+        {
+            second = second->next;
+        }
+    }
+    if (first != NULL)
+    {
+        if (result == NULL)
+        {
+            return first;
+        }
+        result_tail->next = first;
+        first->prev = result_tail;
+    }
+    if (second != NULL)
+    {
+        if (result == NULL)
+        {
+            return second;
+        }
+        result_tail->next = second;
+        second->prev = result_tail;
+    }
+	
+	child = result;
+	while(child != NULL) {
+		if(json_typeof(child) == JSON_OBJECT)
+		{
+			child->child = json_child_sort(child->child);
+		}else if(json_typeof(child) == JSON_ARRAY)
+		{
+			json_array_sort(child);
+		}
+		child = child->next;
+	}
+    return result;
+}
+
+void json_array_sort(json_ht array)
+{
+	json_ht child = array->child;
+	//遍历数组子节点
+	while(child != NULL) {
+		if(child->child){
+			if(json_typeof(child) == JSON_OBJECT) {
+				child->child = json_child_sort(child->child);
+			}else if(json_typeof(child) == JSON_ARRAY) {
+				json_array_sort(child);
+			}
+		}
+		child = child->next;
+	}
+}
+
+void json_object_sort(json_ht object)
+{
+	if(NULL == object && json_typeof(object) != JSON_OBJECT)
+	{
+		return ;
+	}
+	object->child = json_child_sort(object->child);
+}
+
+void json_string_copy(char* dst, char* src, int start, int end)
+{
+    int i,j=0;
+    for(i=start; i<=end;i++,j++)
+    {
+        *(dst+j) = *(src+i);
+    }
+    *(dst+j) = '\0';
+}
+
+//转义path
+JSTATIC void json_path_escape(char* path)
+{
+	char* psrc=path;
+	char* pdst=path;
+	if(path == NULL) return;
+	while(*pdst != '\0')
+	{
+		if(*pdst == '\\') {
+			if(*(pdst+1) == '.' || *(pdst+1) == ':')
+			{
+				pdst++;
+				*psrc = *pdst;
+			}
+		}
+		psrc++; pdst++;
+	}
+	*psrc = *pdst;
+}
+
+//字符串解析正整数,失败返回-1
+JSTATIC int json_string_num(char* s)
+{
+	int res=0;
+	if(NULL == s) return -1;
+	while(*s != '\0') {
+		if(!IS_NUM(*s)) {
+			return -1;
+		}
+		res = res*10 + (*s - '0');s++;
+	}
+	return res;
+}
+
+//冒号代表数组，点代表对象,path中正常的path中如果有:.需要转义。\:,\.为转义字符
+//格式为类型+键值或索引
+//.subobj.array5:2:0:0.aaa
+json_ht json_child_get(json_ht object, char* path)
+{
+	json_ht item = object;
+    char subpath[256]={0};
+    int pstart=0;
+    int pend=0;
+	int index=0;
+	int type;
+	
+	if(NULL == path || (*path != '.' && *path != ':')) return NULL;
+	while(1) {
+		if(*(path+pend) != '.' && *(path+pend) != ':' && *(path+pend) != '\0') { pend++; continue; }
+		if(pend > 0 && (((*(path+pend) == '.' || *(path+pend) == ':') && *(path+pend-1) != '\\') || *(path+pend) == '\0'))
+		{
+			//校验长度
+			if(pend <= pstart) return item;
+			//校验类型
+			if(json_typeof(item) == type) {
+				json_string_copy(subpath, path, pstart, pend-1);
+				if(type == JSON_OBJECT) {
+					json_path_escape(subpath);
+					item = json_object_get(item, subpath);
+				} else {
+					index = json_string_num(subpath);
+					if(-1 == index) {
+						return NULL;
+					}
+					//数组越界会返回NULL
+					item = json_array_get(item, index);
+				}
+				if(NULL == item) {
+					return item;
+				}
+			} else {
+				return NULL;
+			}
+		}
+		if(*(path+pend) == '.') {
+			type = JSON_OBJECT;
+		} else if(*(path+pend) == ':'){
+			type = JSON_ARRAY;
+		} else {
+			return item;
+		}
+        pend++;
+		pstart = pend;
+    }
 }
 
 json_ht json_duplicate(json_ht item,int recurse)
@@ -748,13 +982,6 @@ int json_saveto_file(json_ht item,char *filename)
 	fwrite(data,1,len,f);fclose(f);json_free(data);
 	return 0;
 }
-
-
-
-
-
-
-
 
 
 
