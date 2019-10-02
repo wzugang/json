@@ -1,7 +1,7 @@
-all:testd test
+all:testd
 
 testd:test.c
-	$(CC) -o $@ $(@:d=.c) -L ../ -ljson -lm
+	$(CC) -o $@ $(@:d=.c) -L ../ -Wl,-dn -ljson -Wl,-dy -lm -g
 test:test.c
 	$(CC) -static -o $@ $@.c -L ../ -ljson -lm
 	

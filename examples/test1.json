@@ -1,1 +1,39 @@
-{"hello":"hello world","number":10010,"bool":true,"subobj":{"subjsonobj":"a sub json string"}}
+{
+	"hello":	"hello world",
+	"number":	10010.0,
+	"bool":	true,
+	"subobj":	{
+		"subjsonobj":	{
+			"aaa1":	"bbb",
+			"aaa4":	"bbb",
+			"aaa2":	"bbb",
+			"aaa3":	"bbb"
+		},
+		"aaaaa":"hello world",
+		"bbbbb":"hello world",
+		"dddddddd":"hello world",
+		"cccccccccccc":"hello world",
+		"array1": ["aaaaaaaaa", "bbbbbbbbbbbbbbb","ddddddddddddddddd", "ccccccccccccccccccccc"],
+		"array2": ["aaaaaaaaa", "bbbbbbbbbbbbbbb","ddddddddddddddddd", "ccccccccccccccccccccc"],
+		"array4": ["aaaaaaaaa", "bbbbbbbbbbbbbbb","ddddddddddddddddd", "ccccccccccccccccccccc"],
+		"array3": ["aaaaaaaaa", "bbbbbbbbbbbbbbb","ddddddddddddddddd", "ccccccccccccccccccccc"],
+		"array5": [{
+			"aaa":"aaa",
+			"bbb":"bbb",
+			"ccc":"ccc"
+		}, {
+			"ccc":"ccc",
+			"bbb":"bbb",
+			"aaa":"aaa"
+		},
+		[[
+		{
+			"ccc":"ccc",
+			"bbb":"bbb",
+			"aaa":"aaa test"
+		}
+		]]
+		]
+	}
+}
+
