@@ -303,9 +303,9 @@ JSTATIC char *print_number(json_ht item,json_buffer_ht p)
 		else str=(char*)json_alloc(64);
 		if (str)
 		{
-			if (fabs(floor(d)-d)<=DBL_EPSILON && fabs(d)<1.0e60)sprintf(str,"%.0f",d);
+			if (fabs(floor(d)-d)<=DBL_EPSILON && fabs(d)<1.0e60)sprintf(str,"%g",d); //%g用来输出实数，它根据数值的大小，自动选f格式或e格式
 			else if (fabs(d)<1.0e-6 || fabs(d)>1.0e9) sprintf(str,"%e",d);
-			else sprintf(str,"%f",d);
+			else sprintf(str,"%g",d);
 		}
 	}
 	return str;
@@ -645,7 +645,7 @@ void json_object_replace(json_ht object,const char *string,json_ht newitem){int 
 json_ht json_null_new(void)						{json_ht item=json_new_item();if(item)item->type=JSON_NULL;return item;}
 json_ht json_true_new(void)						{json_ht item=json_new_item();if(item)item->type=JSON_TRUE;return item;}
 json_ht json_false_new(void)					{json_ht item=json_new_item();if(item)item->type=JSON_FALSE;return item;}
-json_ht json_bool_new(int b)					{json_ht item=json_new_item();if(item)item->type=b?JSON_TRUE:JSON_FALSE;return item;}
+json_ht json_bool_new(int b)					{json_ht item=json_new_item();if(item)item->type=(b?JSON_TRUE:JSON_FALSE);return item;}
 json_ht json_number_new(double num)				{json_ht item=json_new_item();if(item){item->type=JSON_NUMBER;item->valuedouble=num;item->valueint=(int)num;}return item;}
 json_ht json_string_new(const char *string)		{json_ht item=json_new_item();if(item){item->type=JSON_STRING;item->valuestring=json_strdup(string);}return item;}
 json_ht json_array_new(void)					{json_ht item=json_new_item();if(item)item->type=JSON_ARRAY;return item;}

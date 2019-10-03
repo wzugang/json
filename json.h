@@ -199,18 +199,128 @@ JEXPORT JAPI json_bool 							json_object_contains(json_ht object,const char *st
 #define json_is_bool(object)  					(object_is_true(object) || json_is_false(object))
 #define json_is_invalid(object) 				(!object || json_typeof(object) == JSON_INVALID)
 
+//number整形与浮点型区分,待改善
+//#define json_is_integer(object)  				(object && json_typeof(object) == JSON_INTEGER)
+//#define json_is_real(object)     				(object && json_typeof(object) == JSON_REAL)
+
 //整形赋值的时候double也必须赋值
 #define json_set_int(object,val)				((object)?(object)->valueint=(object)->valuedouble=(val):(val))
 #define json_set_number(object,val)				((object)?(object)->valueint=(object)->valuedouble=(val):(val))
 #define json_set_string(object,str)				((object)?(object)->valuestring=json_strdup(str):(str))
 #define json_get_string(object)					((object)->valuestring)
 
+//用于json遍历object或者array
+#define json_foreach(element, array) for(element = (array != NULL) ? (array)->child : NULL; element != NULL; element = element->next)
 
+////////////////////////////////////////////////////////json序列化、反序列化宏定义,暂时不支持结构体数组////////////////////////////////////////
+//create/delete
+#define json_object_create(json_obj)							json_ht json_obj = json_object_new();
+#define json_object_delete(json_obj)							json_delete(json_obj);
+#define json_struct_create(struct_obj, type) 					json_ht _json_temp; type *struct_obj = json_alloc(sizeof(type));
+#define json_struct_delete(struct_obj) 							json_free(struct_obj);
 
-//number整形与浮点型区分,待改善
-//#define json_is_integer(object)  				(object && json_typeof(object) == JSON_INTEGER)
-//#define json_is_real(object)     				(object && json_typeof(object) == JSON_REAL)
+//get
+#define json_object_int_element_get(to_struct, from_json, _element) \
+    _json_temp = json_object_get(from_json, #_element); \
+    if (_json_temp) (to_struct)->_element = _json_temp->valueint;
 
+#define json_object_string_element_get(to_struct, from_json, _element) \
+    _json_temp = json_object_get(from_json, #_element); \
+    if (_json_temp) strcpy((to_struct)->_element, _json_temp->valuestring);
+
+#define json_object_double_element_get(to_struct, from_json, _element) \
+    _json_temp = json_object_get(from_json, #_element); \
+    if (_json_temp) (to_struct)->_element = _json_temp->valuedouble;
+
+#define json_object_bool_element_get(to_struct, from_json, _element) \
+    _json_temp = json_object_get(from_json, #_element); \
+    if (_json_temp) (to_struct)->_element = json_typeof(_json_temp);
+
+#define json_array_int_element_get(to_struct, from_json, _element, index) \
+    (to_struct)->_element[index] = from_json->valueint;
+
+#define json_array_string_element_get(to_struct, from_json, _element, index) \
+    strcpy((to_struct)->_element[index], from_json->valuestring);
+
+#define json_array_double_element_get(to_struct, from_json, _element, index) \
+    (to_struct)->_element[index] = from_json->valuedouble;
+
+#define json_array_bool_element_get(to_struct, from_json, _element, index) \
+    (to_struct)->_element[index] = json_typeof(from_json);
+
+#define json_object_element_get(to_struct, from_json, type, _element) \
+    json_object_##type##_element_get(to_struct, from_json, _element)
+
+#define _json_array_element_get(to_struct, from_json, type, _element, index) \
+    json_array_##type##_element_get(to_struct, from_json, _element, index)
+
+#define json_array_element_get(to_struct, from_json, type, _element) \
+    { \
+        json_ht array; \
+		json_ht array_element; \
+        size_t index = 0, size = 0; \
+        array = json_object_get(from_json, #_element); \
+        if (array) { \
+            size = json_array_size(array); \
+            while (index < size) { \
+                array_element = json_array_get(array, index); \
+                if (array_element) _json_array_element_get(to_struct, array_element, type, _element, index++); \
+            } \
+        } \
+    }
+
+#define json_object_struct_element_get(child_struct, to_struct, child_json, from_json, type, _element) \
+    type *child_struct = &((to_struct)->_element); \
+    json_ht child_json = json_object_get(from_json, #_element);
+
+//set
+#define json_object_int_element_set(to_json, from_struct, _element) \
+    json_object_add_number(to_json, #_element, (from_struct)->_element);
+
+#define json_object_double_element_set(to_json, from_struct, _element) \
+    json_object_add_number(to_json, #_element, (from_struct)->_element);
+
+#define json_object_string_element_set(to_json, from_struct, _element) \
+    json_object_add_string(to_json, #_element, (from_struct)->_element);
+
+#define json_object_bool_element_set(to_json, from_struct, _element) \
+    json_object_add_string(to_json, #_element, ((from_struct)->_element == JSON_TRUE));
+
+#define json_array_int_element_set(to_json, from_struct, _element, index) \
+    json_array_add(to_json, json_number_new((from_struct)->_element[index]));
+
+#define json_array_double_element_set(to_json, from_struct, _element, index) \
+    json_array_add(to_json, json_number_new((from_struct)->_element[index]));
+
+#define json_array_string_element_set(to_json, from_struct, _element, index) \
+    json_array_add(to_json, json_string_new((from_struct)->_element[index]));
+
+#define json_array_bool_element_set(to_json, from_struct, _element, index) \
+    json_array_add(to_json, json_bool_new((from_struct)->_element[index] == JSON_TRUE));
+
+#define json_object_element_set(to_json, from_struct, type, _element) \
+    json_object_##type##_element_set(to_json, from_struct, _element)
+
+#define _json_array_element_set(to_json, from_struct, type, _element, index) \
+    json_array_##type##_element_set(to_json, from_struct, _element, index)
+
+#define json_array_element_set(to_json, from_struct, type, _element, size) \
+    { \
+        json_ht array; \
+        size_t index = 0; \
+        array = json_array_new(); \
+        if (array) { \
+            while (index < size) { \
+                _json_array_element_set(array, from_struct, type, _element, index++); \
+            } \
+            json_object_add(to_json, #_element, array); \
+        } \
+    }
+
+#define json_object_struct_element_set(child_json, to_json, child_struct, from_struct, type, _element) \
+    type *child_struct = &((from_struct)->_element); \
+    json_ht child_json = json_object_new(); \
+    if (child_json) json_object_add(to_json, #_element, child_json);
 
 #endif
 
